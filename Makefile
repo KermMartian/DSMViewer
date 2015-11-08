@@ -12,8 +12,8 @@ CPP = g++
 OBJDIR = obj
 
 CIBLE = dsmviewer
-SRCS =  main.cc camera.cc
-DEPS = main.h camera.h
+SRCS =  main.cc camera.cc gdal-helper.cc
+DEPS = main.h camera.h gdal-helper.h
 
 _OBJS = $(SRCS:.cc=.o)
 OBJS = $(patsubst %,$(OBJDIR)/%,$(_OBJS))

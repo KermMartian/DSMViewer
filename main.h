@@ -1,12 +1,13 @@
+#pragma once
+
 #define GLEW_STATIC 1
 #include <GL/glew.h>
 #include <GL/glut.h>
 #include <math.h>
 #include <stdio.h>
 
-#include <gdal/gdal_priv.h>
-
 #include "camera.h"
+#include "gdal-helper.h"
 
 static GLint window;
 static unsigned int SCREENWIDTH = 1024;
@@ -22,7 +23,7 @@ static GLuint glID;
 
 int main(int argc, char* argv[]);
 
-void winInit (const std::string& filename);
+void winInit(void);
 void reshape(int w, int h);
 void display(void);
 void idle(void);

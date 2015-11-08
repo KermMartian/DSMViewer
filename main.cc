@@ -25,7 +25,7 @@
    
 #include "main.h"
 
-void winInit (const std::string & filename) {
+void winInit(void) {
     glewInit();
     if (glewGetExtension("GL_ARB_vertex_buffer_object") != GL_TRUE) {
         fprintf(stderr, "Driver does not support Vertex Buffer Objects\n");
@@ -133,29 +133,10 @@ void motion(int x, int y) {
     }
 }
 
-void printGDALInfo(GDALDataset* poDataset) {
-	double adfGeoTransform[6];
-	printf("Driver: %s/%s\n",
-		poDataset->GetDriver()->GetDescription(), 
-		poDataset->GetDriver()->GetMetadataItem( GDAL_DMD_LONGNAME ) );
-	printf("Size is %dx%dx%d\n", 
-		poDataset->GetRasterXSize(), poDataset->GetRasterYSize(),
-		poDataset->GetRasterCount() );
-	if(poDataset->GetProjectionRef()  != NULL ) {
-		printf( "Projection is `%s'\n", poDataset->GetProjectionRef() );
-	}
-	if(poDataset->GetGeoTransform( adfGeoTransform ) == CE_None ) {
-		printf( "Origin = (%.6f,%.6f)\n",
-				adfGeoTransform[0], adfGeoTransform[3] );
-		printf( "Pixel Size = (%.6f,%.6f)\n",
-				adfGeoTransform[1], adfGeoTransform[5] );
-	}
-}
-
 int main(int argc, char ** argv) {
-    glutInit (&argc, argv);
-    glutInitDisplayMode (GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
-    glutInitWindowSize (SCREENWIDTH, SCREENHEIGHT);
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+    glutInitWindowSize(SCREENWIDTH, SCREENHEIGHT);
     window = glutCreateWindow ( "DSMViewer");
 
     if (argc != 2) {
@@ -164,15 +145,10 @@ int main(int argc, char ** argv) {
 	}
   
 	// Handle opening GDAL (DSM) dataset
-	GDALDataset* poDataset;
-	GDALAllRegister();
-	poDataset = (GDALDataset*)GDALOpen(argv[1], GA_ReadOnly);
-	if (poDataset == NULL) {
-		fprintf(stderr, "Failed to open GDAL dataset '%s'\n", argv[1]);
-	}
-	printGDALInfo(poDataset);
+	GDALHelper dataset = GDALHelper(std::string(argv[1]));
+	dataset.printGDALInfo();
 
-    winInit(std::string(argv[1]));
+    winInit();
   
     glCullFace(GL_BACK);
     glEnable(GL_CULL_FACE);
