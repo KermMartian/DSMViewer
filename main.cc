@@ -139,14 +139,17 @@ int main(int argc, char ** argv) {
     glutInitWindowSize(SCREENWIDTH, SCREENHEIGHT);
     window = glutCreateWindow ( "DSMViewer");
 
-    if (argc != 2) {
-		fprintf(stderr, "Need 2 arguments\n");
+    if (argc != 3) {
+		fprintf(stderr, "Need 3 arguments\n");
 		return EXIT_FAILURE;
 	}
+	std::string filename = std::string(argv[1]);
+	int band = atoi(argv[2]);
   
 	// Handle opening GDAL (DSM) dataset
-	GDALHelper dataset = GDALHelper(std::string(argv[1]));
+	GDALHelper dataset = GDALHelper(filename);
 	dataset.printGDALInfo();
+	dataset.selectBand(band);
 
     winInit();
   
