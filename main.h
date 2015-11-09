@@ -30,6 +30,11 @@ static unsigned int FPS = 0;
 static bool fullScreen = false;
 static GLuint glID;
 
+static float* pa_x = NULL;
+static float* pa_y = NULL;
+static float* pa_z = NULL;
+static size_t numPoints = 0;
+
 int main(int argc, char* argv[]);
 
 void winInit(void);

@@ -85,6 +85,32 @@ int GDALHelper::getBandSize(size_t& x, size_t& y) {
 	return 0;
 }
 
+/* Takes 6-element array of floats, and returns
+   [min_x, max_x, min_y, max_y, min_z, max_z] */
+int GDALHelper::getBandExtents(float* points) {
+	if (!po_band_)
+		return -1;
+
+	// Get candidate minimum and maximum X and Y. Because the
+	// affine transformation can cause reflection, don't assume
+	// that xa is xmin and ya is ymin.
+	float xa, xb, ya, yb;
+	xa = adf_geo_transform_[0];
+	xb = xa + (po_band_->GetXSize() - 1) * adf_geo_transform_[1];
+	ya = adf_geo_transform_[3];
+	yb = ya + (po_band_->GetYSize() - 1) * adf_geo_transform_[5];
+
+	// Now populate the array. The fmin/fmax on Z is probably unnecessary.
+	points[0] = fmin(xa, xb);
+	points[1] = fmax(xa, xb);
+	points[2] = fmin(ya, yb);
+	points[3] = fmax(ya, yb);
+	points[4] = fmin(adf_min_max_[0], adf_min_max_[1]);
+	points[5] = fmax(adf_min_max_[0], adf_min_max_[1]);
+	
+	return 0;
+}
+
 int GDALHelper::getBandScanline(float*& arr_x, float*& arr_y, float*& arr_z, const int y) {
 	float *pafScanline;
 	int nx_size = po_band_->GetXSize();

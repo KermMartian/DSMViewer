@@ -44,9 +44,16 @@ void display () {
     glLoadIdentity();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     camera.apply();
-    // drawSolidModel ();
-    glFlush ();
-    glutSwapBuffers ();
+
+	glBegin(GL_POINTS);
+	glColor3f(1., 1., 1.);
+	for(size_t i = 0; i < numPoints; i++) {
+		glVertex3f(pa_x[i], pa_y[i], pa_z[i]);
+	}
+	glEnd();
+
+    glFlush();
+    glutSwapBuffers();
 }
 
 void idle() {
@@ -58,7 +65,6 @@ void idle() {
         FPS = counter;
         counter = 0;
         static char FPSstr[128];
-        size_t numPoints = 0;
 		sprintf(FPSstr, "gMini: %zu points - solid - %d FPS.",
 				numPoints, FPS);
         glutSetWindowTitle (FPSstr);
@@ -136,18 +142,42 @@ void motion(int x, int y) {
 int main(int argc, char ** argv) {
 	int rval;
 
+	int c = 0;
+	opterr = 0;
+
+	std::string filename = "";
+	int band = -1;
+	size_t pixel_step = 1;
+
+	while((c = getopt(argc, argv, "s:b:")) != -1) {
+		switch(c) {
+			case 's':
+				pixel_step = atoi(optarg);
+				break;
+			case 'b':
+				band = atoi(optarg);
+				break;
+			default:
+			case '?':
+				fprintf(stderr, "Unrecognized option '%c' (arg '%s')\n",
+				        optopt, argv[optind]);
+				return EXIT_FAILURE; 
+		}
+	}
+	if (optind < argc) {
+		filename = argv[optind];
+	}
+
+    if (!filename.length() || band < 0 || pixel_step < 1) {
+		fprintf(stderr, "Bad arguments!\n");
+		return EXIT_FAILURE;
+	}
+  
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
     glutInitWindowSize(SCREENWIDTH, SCREENHEIGHT);
-    window = glutCreateWindow ( "DSMViewer");
+    window = glutCreateWindow("DSMViewer");
 
-    if (argc != 3) {
-		fprintf(stderr, "Need 3 arguments\n");
-		return EXIT_FAILURE;
-	}
-	std::string filename = std::string(argv[1]);
-	int band = atoi(argv[2]);
-  
 	// Handle opening GDAL (DSM) dataset
 	GDALHelper dataset = GDALHelper(filename);
 	dataset.printGDALInfo();
@@ -155,34 +185,61 @@ int main(int argc, char ** argv) {
 
     winInit();
 
-	// Load band
+	// Load band metadata
 	size_t gdal_x, gdal_y;
+	float extents[6];
 	if (rval = dataset.getBandSize(gdal_x, gdal_y)) {
 		fprintf(stderr, "Failed to fetch band size\n");
 		return EXIT_FAILURE;
 	}
+	if (rval = dataset.getBandExtents(extents)) {
+		fprintf(stderr, "Failed to fetch band extents\n");
+		return EXIT_FAILURE;
+	}
+	
+	// Reserve arrays for point X, Y, and Z coordinates
+	pa_x = (float*)malloc(sizeof(float) * gdal_x * gdal_y);
+	pa_y = (float*)malloc(sizeof(float) * gdal_x * gdal_y);
+	pa_z = (float*)malloc(sizeof(float) * gdal_x * gdal_y);
+	if (!pa_x || !pa_y || !pa_z) {
+		fprintf(stderr, "Exhausted memory reserving point buffers\n");
+		return EXIT_FAILURE;
+	}
+
+	// Now load actual points
 	fprintf(stdout, "Loading band %d...\n", band);
-	for(size_t y = 0; y < gdal_y; y++) {
+	numPoints = 0;
+	for(size_t y = 0; y < gdal_y; y += pixel_step) {
 		float *scanline, *coords_x, *coords_y;
 		if (dataset.getBandScanline(scanline, coords_x, coords_y, y)) {
 			fprintf(stderr, "Failed to read scanline %zu\n", y);
 			return EXIT_FAILURE;
 		}
 
-		glBegin(GL_POINTS);
-		for(size_t x = 0; x < gdal_x; x++) {
-			glVertex3f(coords_x[x], coords_y[x], scanline[x]);
+		// Store data
+		for(size_t x = 0; x < gdal_x; x+= pixel_step) {
+			pa_x[numPoints] = coords_x[x];
+			pa_y[numPoints] = coords_y[x];
+			pa_z[numPoints++] = scanline[x];
 		}
-		glEnd();
-
 		dataset.freeBandArray(scanline);
 		dataset.freeBandArray(coords_x);
 		dataset.freeBandArray(coords_y);
-		fprintf(stdout, "\r%.0f%% (%zu points)...      ",
-		        100. * ((float)y / (float)gdal_y),
-		        (y + 1) * gdal_x);
+
+		if (!(y % 16)) {
+			fprintf(stdout, "\r%.0f%% (%zu points)...      ",
+					100. * ((float)y / (float)gdal_y), numPoints);
+			fflush(stdout);
+		}
 	}
+	fprintf(stdout, "\n");
+	
+	// Move the camera to the center of the point cloud
+	camera.move((extents[0] + extents[1]) / 2.,
+	            (extents[2] + extents[3]) / 2.,
+	            (extents[4] + extents[5]) / 2.);
   
+	// Set up OpenGL settings and callbacks
     glCullFace(GL_BACK);
     glEnable(GL_CULL_FACE);
     glutIdleFunc(idle);

@@ -18,6 +18,7 @@ class GDALHelper {
 	void printGDALInfo(void);
 	void selectBand(const int band);
 	int getBandSize(size_t& x, size_t& y);
+	int getBandExtents(float* points);
 	int getBandScanline(float*& arr_x, float*& arr_y, float*& arr_z, const int y);
 	int freeBandArray(float* arr);
 
