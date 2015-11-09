@@ -1,5 +1,9 @@
 // --------------------------------------------------------------------------
-// gMini,
+// DSM Viewer
+// Copyright(C) 2015
+// Christopher Mitchell
+//                                                                            
+// Adapter from gMini,
 // a minimal Glut/OpenGL app to extend                              
 //
 // Copyright(C) 2007-2009                

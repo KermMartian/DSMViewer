@@ -134,6 +134,8 @@ void motion(int x, int y) {
 }
 
 int main(int argc, char ** argv) {
+	int rval;
+
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
     glutInitWindowSize(SCREENWIDTH, SCREENHEIGHT);
@@ -152,6 +154,34 @@ int main(int argc, char ** argv) {
 	dataset.selectBand(band);
 
     winInit();
+
+	// Load band
+	size_t gdal_x, gdal_y;
+	if (rval = dataset.getBandSize(gdal_x, gdal_y)) {
+		fprintf(stderr, "Failed to fetch band size\n");
+		return EXIT_FAILURE;
+	}
+	fprintf(stdout, "Loading band %d...\n", band);
+	for(size_t y = 0; y < gdal_y; y++) {
+		float *scanline, *coords_x, *coords_y;
+		if (dataset.getBandScanline(scanline, coords_x, coords_y, y)) {
+			fprintf(stderr, "Failed to read scanline %zu\n", y);
+			return EXIT_FAILURE;
+		}
+
+		glBegin(GL_POINTS);
+		for(size_t x = 0; x < gdal_x; x++) {
+			glVertex3f(coords_x[x], coords_y[x], scanline[x]);
+		}
+		glEnd();
+
+		dataset.freeBandArray(scanline);
+		dataset.freeBandArray(coords_x);
+		dataset.freeBandArray(coords_y);
+		fprintf(stdout, "\r%.0f%% (%zu points)...      ",
+		        100. * ((float)y / (float)gdal_y),
+		        (y + 1) * gdal_x);
+	}
   
     glCullFace(GL_BACK);
     glEnable(GL_CULL_FACE);

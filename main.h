@@ -1,3 +1,12 @@
+// --------------------------------------------------------------------------
+// DSM Viewer
+// Copyright(C) 2015
+// Christopher Mitchell
+//                                                                            
+// All rights reserved. See main.cc for license.                              
+//                                                                          
+// --------------------------------------------------------------------------
+   
 #pragma once
 
 #define GLEW_STATIC 1
