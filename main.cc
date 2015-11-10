@@ -25,6 +25,7 @@
    
 #include "main.h"
 
+/* Initialize OpenGL, set camera viewport, set background color. */
 void winInit(void) {
     glewInit();
     if (glewGetExtension("GL_ARB_vertex_buffer_object") != GL_TRUE) {
@@ -36,10 +37,13 @@ void winInit(void) {
     glClearColor(0.0, 0.0, 0.0, 1.0);
 }
 
+/* Callback called when the window changes size. */
 void reshape(int w, int h) {
     camera.resize(w, h);
 }
 
+/* Actually render the points onto the screen, including the
+   current camera, the exaggeration factor, and color values. */
 void display () {
     glLoadIdentity();
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -48,7 +52,7 @@ void display () {
 	glBegin(GL_POINTS);
 	glColor3f(1., 1., 1.);
 	for(size_t i = 0; i < numPoints; i++) {
-		glVertex3f(pa_x[i], pa_y[i], pa_z[i]);
+		glVertex3f(pa_x[i], pa_y[i], pa_z[i] * exag_fac);
 	}
 	glEnd();
 
@@ -56,6 +60,8 @@ void display () {
     glutSwapBuffers();
 }
 
+/* While the program is otherwise idle, update the FPS counter
+   in the program's titlebar. */
 void idle() {
     static float lastTime = glutGet((GLenum)GLUT_ELAPSED_TIME);
     static unsigned int counter = 0;
@@ -74,6 +80,8 @@ void idle() {
     glutPostRedisplay();
 }
 
+/* Handle keys that can be represented by ASCII chars
+   or char codes. */
 void key(unsigned char keyPressed, int x, int y) {
     switch (keyPressed) {
     case 'f':
@@ -95,6 +103,24 @@ void key(unsigned char keyPressed, int x, int y) {
     idle();
 }
 
+/* Handle special keys and events, like the arrow keys */
+void keySpecial(int keyPressed, int x, int y) {
+    switch (keyPressed) {
+	case GLUT_KEY_UP:
+		exag_fac *= 2.f;
+		fprintf(stdout, "Exaggeration factor increased to %f\n", exag_fac);
+		break;
+	case GLUT_KEY_DOWN:
+		exag_fac *= 0.5f;
+		fprintf(stdout, "Exaggeration factor decreased to %f\n", exag_fac);
+		break;
+    default:
+        break;
+	}
+    idle();
+}
+
+/* Handle mouse buttons, used in motion() */
 void mouse(int button, int state, int x, int y) {
     if (state == GLUT_UP) {
         mouseMovePressed = false;
@@ -124,6 +150,9 @@ void mouse(int button, int state, int x, int y) {
     idle();
 }
 
+/* Callback triggered when the mouse moves around
+   the screen. Used for moving the camera, rotating
+   the model, and zooming. */
 void motion(int x, int y) {
     if (mouseRotatePressed == true)  {
         camera.rotate(x, y);
@@ -134,7 +163,7 @@ void motion(int x, int y) {
         lastX = x;
         lastY = y;
     } else if (mouseZoomPressed == true) {
-        camera.zoom (float (y-lastZoom)/SCREENHEIGHT);
+        camera.zoom(ZOOM_SCALE_FAC * float(y - lastZoom)/SCREENHEIGHT);
         lastZoom = y;
     }
 }
@@ -196,7 +225,12 @@ int main(int argc, char ** argv) {
 		fprintf(stderr, "Failed to fetch band extents\n");
 		return EXIT_FAILURE;
 	}
-	
+
+	float cam_center[3];
+	cam_center[0] = (extents[0] + extents[1]) / 2.;
+	cam_center[1] = (extents[2] + extents[3]) / 2.;
+	cam_center[2] = (extents[4] + extents[5]) / 2.;
+
 	// Reserve arrays for point X, Y, and Z coordinates
 	pa_x = (float*)malloc(sizeof(float) * gdal_x * gdal_y);
 	pa_y = (float*)malloc(sizeof(float) * gdal_x * gdal_y);
@@ -211,16 +245,16 @@ int main(int argc, char ** argv) {
 	numPoints = 0;
 	for(size_t y = 0; y < gdal_y; y += pixel_step) {
 		float *scanline, *coords_x, *coords_y;
-		if (dataset.getBandScanline(scanline, coords_x, coords_y, y)) {
+		if (dataset.getBandScanline(coords_x, coords_y, scanline, y)) {
 			fprintf(stderr, "Failed to read scanline %zu\n", y);
 			return EXIT_FAILURE;
 		}
 
 		// Store data
 		for(size_t x = 0; x < gdal_x; x+= pixel_step) {
-			pa_x[numPoints] = coords_x[x];
-			pa_y[numPoints] = coords_y[x];
-			pa_z[numPoints++] = scanline[x];
+			pa_x[numPoints] = coords_x[x] - cam_center[0];
+			pa_y[numPoints] = coords_y[x] - cam_center[1];
+			pa_z[numPoints++] = scanline[x] - cam_center[2]; //(rand() % 128) - 64 + cam_center[2];
 		}
 		dataset.freeBandArray(scanline);
 		dataset.freeBandArray(coords_x);
@@ -235,16 +269,19 @@ int main(int argc, char ** argv) {
 	fprintf(stdout, "\n");
 	
 	// Move the camera to the center of the point cloud
-	camera.move((extents[0] + extents[1]) / 2.,
-	            (extents[2] + extents[3]) / 2.,
-	            (extents[4] + extents[5]) / 2.);
+	fprintf(stdout, "Moving camera to (%f, %f, %f)\n",
+	        cam_center[0], cam_center[1], cam_center[2]);
+	//camera.move(-cam_center[0], -cam_center[1], -cam_center[2]);
   
-	// Set up OpenGL settings and callbacks
+	// Set up OpenGL settings and callbacks for output
     glCullFace(GL_BACK);
     glEnable(GL_CULL_FACE);
     glutIdleFunc(idle);
     glutDisplayFunc(display);
+
+	// Set up OpenGL callbacks for input
     glutKeyboardFunc(key);
+	glutSpecialFunc(keySpecial);
     glutReshapeFunc(reshape);
     glutMotionFunc(motion);
     glutMouseFunc(mouse);
@@ -252,6 +289,7 @@ int main(int argc, char ** argv) {
     glDepthFunc(GL_LESS);
     glEnable(GL_DEPTH_TEST);
   
+	// Kick it off!
     glutMainLoop();
     return EXIT_SUCCESS;
 }

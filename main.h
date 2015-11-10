@@ -18,6 +18,8 @@
 #include "camera.h"
 #include "gdal-helper.h"
 
+const float ZOOM_SCALE_FAC = 256.f;
+
 static GLint window;
 static unsigned int SCREENWIDTH = 1024;
 static unsigned int SCREENHEIGHT = 768;
@@ -34,6 +36,7 @@ static float* pa_x = NULL;
 static float* pa_y = NULL;
 static float* pa_z = NULL;
 static size_t numPoints = 0;
+static float exag_fac = 1.;
 
 int main(int argc, char* argv[]);
 
@@ -42,6 +45,7 @@ void reshape(int w, int h);
 void display(void);
 void idle(void);
 void key(unsigned char keyPressed, int x, int y);
+void keySpecial(int keyPressed, int x, int y);
 void mouse(int button, int state, int x, int y);
 void motion(int x, int y);
 

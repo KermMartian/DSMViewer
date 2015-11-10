@@ -89,7 +89,7 @@ Camera::Camera () {
   fovAngle = 45.0;
   aspectRatio = 1.0;
   nearPlane = 0.1;
-  farPlane = 10000.0;
+  farPlane = 100000.0;
   
   spinning = 0;
   moving = 0;
@@ -188,10 +188,10 @@ void Camera::zoom (float z) {
 
 void Camera::apply () {
   glLoadIdentity();
-  glTranslatef (x, y, z);
+  glTranslatef(x, y, z);
   GLfloat m[4][4]; 
   build_rotmatrix(m, curquat);
-  glTranslatef (0.0, 0.0, -_zoom);
+  glTranslatef(0.0, 0.0, -_zoom);
   glMultMatrixf(&m[0][0]);
 }
 
