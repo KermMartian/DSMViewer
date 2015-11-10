@@ -50,8 +50,8 @@ void display () {
     camera.apply();
 
 	glBegin(GL_POINTS);
-	glColor3f(1., 1., 1.);
 	for(size_t i = 0; i < numPoints; i++) {
+		glColor3f(ca_r[i], ca_g[i], ca_b[i]);
 		glVertex3f(pa_x[i], pa_y[i], pa_z[i] * exag_fac);
 	}
 	glEnd();
@@ -168,7 +168,41 @@ void motion(int x, int y) {
     }
 }
 
-int main(int argc, char ** argv) {
+// Credit to http://www.andrewnoske.com/wiki/Code_-_heatmaps_and_color_gradients,
+// because I was too lazy to port my own heatmap function from Prizm C.
+void getHeatMapColor(float value, float *red, float *green, float *blue) {
+	const int NUM_COLORS = 5;
+	const static float color[NUM_COLORS][3] = { {0,0,1}, {0,1,1}, {0,1,0}, {1,1,0}, {1,0,0} };
+	// blue, cyan, green, yellow, red
+ 
+	int idx1;        // |-- Our desired color will be between these two indexes in "color".
+	int idx2;        // |
+	float fractBetween = 0;  // Fraction between "idx1" and "idx2" where our value is.
+ 
+	if(value <= 0.) {					// accounts for input <= 0
+		idx1 = idx2 = 0.;
+	} else if (value >= 1.) {			// accounts for input >= 1
+		idx1 = idx2 = NUM_COLORS - 1;
+	} else {
+		value = value * (NUM_COLORS-1);        // Will multiply value by 3.
+		idx1  = floor(value);                  // Our desired color will be after this index.
+		idx2  = idx1+1;                        // ... and before this index (inclusive).
+		fractBetween = value - float(idx1);    // Distance between the two indexes (0-1).
+	}
+ 
+	*red   = (color[idx2][0] - color[idx1][0])*fractBetween + color[idx1][0];
+	*green = (color[idx2][1] - color[idx1][1])*fractBetween + color[idx1][1];
+	*blue  = (color[idx2][2] - color[idx1][2])*fractBetween + color[idx1][2];
+}
+
+void printUsage(char* argv[]) {
+	fprintf(stderr, "Usage: %s -b <band> [-s <pixel_step>] <filename>\n", argv[0]);
+	fprintf(stderr, "       <band>: Band to use from GDAL-compatible file.\n");
+	fprintf(stderr, "       <pixel_step>: Use every nth pixel. Defaults to 1.\n");
+	fprintf(stderr, "       <filename>: Path to GDAL-compatible file, eg Erdas Imagine file\n");
+}
+
+int main(int argc, char* argv[]) {
 	int rval;
 
 	int c = 0;
@@ -178,7 +212,7 @@ int main(int argc, char ** argv) {
 	int band = -1;
 	size_t pixel_step = 1;
 
-	while((c = getopt(argc, argv, "s:b:")) != -1) {
+	while((c = getopt(argc, argv, "s:b:h")) != -1) {
 		switch(c) {
 			case 's':
 				pixel_step = atoi(optarg);
@@ -190,6 +224,8 @@ int main(int argc, char ** argv) {
 			case '?':
 				fprintf(stderr, "Unrecognized option '%c' (arg '%s')\n",
 				        optopt, argv[optind]);
+			case 'h':
+				printUsage(argv);
 				return EXIT_FAILURE; 
 		}
 	}
@@ -231,11 +267,14 @@ int main(int argc, char ** argv) {
 	cam_center[1] = (extents[2] + extents[3]) / 2.;
 	cam_center[2] = (extents[4] + extents[5]) / 2.;
 
-	// Reserve arrays for point X, Y, and Z coordinates
+	// Reserve arrays for point X, Y, and Z coordinates and colors
 	pa_x = (float*)malloc(sizeof(float) * gdal_x * gdal_y);
 	pa_y = (float*)malloc(sizeof(float) * gdal_x * gdal_y);
 	pa_z = (float*)malloc(sizeof(float) * gdal_x * gdal_y);
-	if (!pa_x || !pa_y || !pa_z) {
+	ca_r = (float*)malloc(sizeof(float) * gdal_x * gdal_y);
+	ca_g = (float*)malloc(sizeof(float) * gdal_x * gdal_y);
+	ca_b = (float*)malloc(sizeof(float) * gdal_x * gdal_y);
+	if (!pa_x || !pa_y || !pa_z || !ca_r || !ca_g || !ca_b) {
 		fprintf(stderr, "Exhausted memory reserving point buffers\n");
 		return EXIT_FAILURE;
 	}
@@ -251,10 +290,12 @@ int main(int argc, char ** argv) {
 		}
 
 		// Store data
-		for(size_t x = 0; x < gdal_x; x+= pixel_step) {
+		for(size_t x = 0; x < gdal_x; x+= pixel_step, numPoints++) {
 			pa_x[numPoints] = coords_x[x] - cam_center[0];
 			pa_y[numPoints] = coords_y[x] - cam_center[1];
-			pa_z[numPoints++] = scanline[x] - cam_center[2]; //(rand() % 128) - 64 + cam_center[2];
+			pa_z[numPoints] = scanline[x] - cam_center[2]; //(rand() % 128) - 64 + cam_center[2];
+			float depth_ratio = (pa_z[numPoints] - extents[4]) / (extents[5] - extents[4]);
+			getHeatMapColor(depth_ratio, &ca_r[numPoints], &ca_g[numPoints], &ca_b[numPoints]);
 		}
 		dataset.freeBandArray(scanline);
 		dataset.freeBandArray(coords_x);
@@ -269,8 +310,8 @@ int main(int argc, char ** argv) {
 	fprintf(stdout, "\n");
 	
 	// Move the camera to the center of the point cloud
-	fprintf(stdout, "Moving camera to (%f, %f, %f)\n",
-	        cam_center[0], cam_center[1], cam_center[2]);
+	//fprintf(stdout, "Moving camera to (%f, %f, %f)\n",
+	//        cam_center[0], cam_center[1], cam_center[2]);
 	//camera.move(-cam_center[0], -cam_center[1], -cam_center[2]);
   
 	// Set up OpenGL settings and callbacks for output

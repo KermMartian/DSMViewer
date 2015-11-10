@@ -32,13 +32,24 @@ static unsigned int FPS = 0;
 static bool fullScreen = false;
 static GLuint glID;
 
+// Store pre-computed point positions
 static float* pa_x = NULL;
 static float* pa_y = NULL;
 static float* pa_z = NULL;
+
+// Store pre-computed point colors
+static float* ca_r = NULL;
+static float* ca_g = NULL;
+static float* ca_b = NULL;
+
+// Other global point state
 static size_t numPoints = 0;
 static float exag_fac = 1.;
 
 int main(int argc, char* argv[]);
+void printUsage(char* argv[]);
+
+void getHeatMapColor(float value, float *red, float *green, float *blue);
 
 void winInit(void);
 void reshape(int w, int h);
