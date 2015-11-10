@@ -18,8 +18,6 @@
 #include "camera.h"
 #include "gdal-helper.h"
 
-const float ZOOM_SCALE_FAC = 256.f;
-
 static GLint window;
 static unsigned int SCREENWIDTH = 1024;
 static unsigned int SCREENHEIGHT = 768;
@@ -45,9 +43,11 @@ static float* ca_b = NULL;
 // Other global point state
 static size_t numPoints = 0;
 static float exag_fac = 1.;
+static float move_scale_fac = 256.f;
 
 int main(int argc, char* argv[]);
 void printUsage(char* argv[]);
+void printKeys(char* argv[]);
 
 void getHeatMapColor(float value, float *red, float *green, float *blue);
 

@@ -93,6 +93,18 @@ void key(unsigned char keyPressed, int x, int y) {
             fullScreen = true;
         }      
         break;
+	case 'w':
+		camera.move(0.f, 0.f, move_scale_fac);
+		break;
+	case 'a':
+		camera.move(move_scale_fac, 0.f, 0.f);
+		break;
+	case 's':
+		camera.move(0.f, 0.f, -move_scale_fac);
+		break;
+	case 'd':
+		camera.move(-move_scale_fac, 0.f, 0.f);
+        break;
     case 'q':
     case 27:
         exit(EXIT_SUCCESS);
@@ -113,6 +125,14 @@ void keySpecial(int keyPressed, int x, int y) {
 	case GLUT_KEY_DOWN:
 		exag_fac *= 0.5f;
 		fprintf(stdout, "Exaggeration factor decreased to %f\n", exag_fac);
+		break;
+	case GLUT_KEY_LEFT:
+		move_scale_fac *= 2.f;
+		fprintf(stdout, "Movement factor increased to %f\n", move_scale_fac);
+		break;
+	case GLUT_KEY_RIGHT:
+		move_scale_fac *= 0.5f;
+		fprintf(stdout, "Movement factor decreased to %f\n", move_scale_fac);
 		break;
     default:
         break;
@@ -163,7 +183,7 @@ void motion(int x, int y) {
         lastX = x;
         lastY = y;
     } else if (mouseZoomPressed == true) {
-        camera.zoom(ZOOM_SCALE_FAC * float(y - lastZoom)/SCREENHEIGHT);
+        camera.zoom(move_scale_fac * float(y - lastZoom)/SCREENHEIGHT);
         lastZoom = y;
     }
 }
@@ -200,6 +220,18 @@ void printUsage(char* argv[]) {
 	fprintf(stderr, "       <band>: Band to use from GDAL-compatible file.\n");
 	fprintf(stderr, "       <pixel_step>: Use every nth pixel. Defaults to 1.\n");
 	fprintf(stderr, "       <filename>: Path to GDAL-compatible file, eg Erdas Imagine file\n");
+}
+
+void printKeys(char* argv[]) {
+	fprintf(stdout, "============ Interacting with %s: =============\n", argv[0]);
+	fprintf(stdout, " Left-click and drag: rotate\n");
+	fprintf(stdout, " Right-click and drag: move camera\n");
+	fprintf(stdout, " Middle-click and drag up/down: zoom\n");
+	fprintf(stdout, " [Q]: Quit\n");
+	fprintf(stdout, " [WASD]: Standard FPS-like camera movement\n");
+	fprintf(stdout, " [up]/[down]: Increase/decrease Z-axis exaggeration\n");
+	fprintf(stdout, " [left]/[right]: Increase/decrease movement scaling\n");
+	fprintf(stdout, "------------------------------------------------------\n");
 }
 
 int main(int argc, char* argv[]) {
@@ -308,6 +340,7 @@ int main(int argc, char* argv[]) {
 		}
 	}
 	fprintf(stdout, "\n");
+	printKeys(argv);
 	
 	// Move the camera to the center of the point cloud
 	//fprintf(stdout, "Moving camera to (%f, %f, %f)\n",
