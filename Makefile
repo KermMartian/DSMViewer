@@ -1,5 +1,5 @@
 # Toggle the following line/comment under windows
-LIBS =  -lglut -lGLU -lGL -lGLEW -lm -lgdal
+LIBS =  -lglut -lGLU -lGL -lGLEW -lm -lgdal -llaslib
 #LIBS =  -lglut32 -lGLU32 -lopengl32 -lglew32 -lm
 
 CFLAGS = -Wall -O3 -mfpmath=sse -msse2 #-march=native -mtune=native

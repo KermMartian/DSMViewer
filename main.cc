@@ -234,53 +234,13 @@ void printKeys(char* argv[]) {
 	fprintf(stdout, "------------------------------------------------------\n");
 }
 
-int main(int argc, char* argv[]) {
+int loadGDAL(std::string filename, int band, int pixel_step) {
 	int rval;
-
-	int c = 0;
-	opterr = 0;
-
-	std::string filename = "";
-	int band = -1;
-	size_t pixel_step = 1;
-
-	while((c = getopt(argc, argv, "s:b:h")) != -1) {
-		switch(c) {
-			case 's':
-				pixel_step = atoi(optarg);
-				break;
-			case 'b':
-				band = atoi(optarg);
-				break;
-			default:
-			case '?':
-				fprintf(stderr, "Unrecognized option '%c' (arg '%s')\n",
-				        optopt, argv[optind]);
-			case 'h':
-				printUsage(argv);
-				return EXIT_FAILURE; 
-		}
-	}
-	if (optind < argc) {
-		filename = argv[optind];
-	}
-
-    if (!filename.length() || band < 0 || pixel_step < 1) {
-		fprintf(stderr, "Bad arguments!\n");
-		return EXIT_FAILURE;
-	}
-  
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
-    glutInitWindowSize(SCREENWIDTH, SCREENHEIGHT);
-    window = glutCreateWindow("DSMViewer");
 
 	// Handle opening GDAL (DSM) dataset
 	GDALHelper dataset = GDALHelper(filename);
 	dataset.printGDALInfo();
 	dataset.selectBand(band);
-
-    winInit();
 
 	// Load band metadata
 	size_t gdal_x, gdal_y;
@@ -340,6 +300,129 @@ int main(int argc, char* argv[]) {
 		}
 	}
 	fprintf(stdout, "\n");
+	return 0;
+}
+
+int loadLAS(std::string filename, int band, int pixel_step) {
+	// Try to open specified LAS file
+	LASreadOpener las_read_opener;
+	las_read_opener.set_file_name(filename.c_str());
+	LASreader* las_reader = las_read_opener.open();
+	if (NULL == las_reader) {
+		fprintf(stderr, "Failed to open '%s'\n", filename.c_str());
+		return EXIT_FAILURE;
+	}
+	fprintf(stdout, "LAS file contains %zu points\n", (size_t)las_reader->npoints);
+
+	float extents[6];
+	extents[0] = las_reader->get_min_x();
+	extents[1] = las_reader->get_max_x();
+	extents[2] = las_reader->get_min_y();
+	extents[3] = las_reader->get_max_y();
+	extents[4] = las_reader->get_min_z();
+	extents[5] = las_reader->get_max_z();
+	fprintf(stdout, "LAS extents: x=[%f,%f], y=[%f,%f], z=[%f,%f]\n",
+	        extents[0], extents[1], extents[2],
+	        extents[3], extents[4], extents[5]);
+
+	float cam_center[3];
+	cam_center[0] = (extents[0] + extents[1]) / 2.;
+	cam_center[1] = (extents[2] + extents[3]) / 2.;
+	cam_center[2] = (extents[4] + extents[5]) / 2.;
+
+	// Reserve arrays for point X, Y, and Z coordinates and colors
+	size_t restricted_points = (size_t)las_reader->npoints / pixel_step;
+	pa_x = (float*)malloc(sizeof(float) * restricted_points);
+	pa_y = (float*)malloc(sizeof(float) * restricted_points);
+	pa_z = (float*)malloc(sizeof(float) * restricted_points);
+	ca_r = (float*)malloc(sizeof(float) * restricted_points);
+	ca_g = (float*)malloc(sizeof(float) * restricted_points);
+	ca_b = (float*)malloc(sizeof(float) * restricted_points);
+	if (!pa_x || !pa_y || !pa_z || !ca_r || !ca_g || !ca_b) {
+		fprintf(stderr, "Exhausted memory reserving point buffers\n");
+		return EXIT_FAILURE;
+	}
+
+	// Now load actual points
+	fprintf(stdout, "Loading %zu points from LAS file...\n", restricted_points);
+	for(size_t i = 0; i < restricted_points; i++) {
+		// Store data
+		las_reader->read_point();
+		pa_x[i] = las_reader->get_x() - cam_center[0];
+		pa_y[i] = las_reader->get_y() - cam_center[1];
+		pa_z[i] = las_reader->get_z() - cam_center[2]; //(rand() % 128) - 64 + cam_center[2];
+		float depth_ratio = (pa_z[i] - extents[4]) / (extents[5] - extents[4]);
+		getHeatMapColor(depth_ratio, &ca_r[i], &ca_g[i], &ca_b[i]);
+
+		if (!(i % 256)) {
+			fprintf(stdout, "\r%.0f%% (%zu points)...      ",
+					100. * ((float)i / (float)restricted_points), numPoints);
+			fflush(stdout);
+		}
+
+		for(size_t j = 0; j < pixel_step - 1; j++) {
+			las_reader->read_point();
+		}
+	}
+	numPoints = restricted_points;
+	fprintf(stdout, "\n");
+	return 0;
+}
+
+int main(int argc, char* argv[]) {
+	int c = 0;
+	opterr = 0;
+
+	std::string filename = "";
+	int band = -1;
+	size_t pixel_step = 1;
+
+	while((c = getopt(argc, argv, "s:b:h")) != -1) {
+		switch(c) {
+			case 's':
+				pixel_step = atoi(optarg);
+				break;
+			case 'b':
+				band = atoi(optarg);
+				break;
+			default:
+			case '?':
+				fprintf(stderr, "Unrecognized option '%c' (arg '%s')\n",
+				        optopt, argv[optind]);
+			case 'h':
+				printUsage(argv);
+				return EXIT_FAILURE; 
+		}
+	}
+	if (optind < argc) {
+		filename = argv[optind];
+	}
+
+    if (!filename.length() || band < 0 || pixel_step < 1) {
+		fprintf(stderr, "Bad arguments!\n");
+		return EXIT_FAILURE;
+	}
+  
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_RGBA | GLUT_DEPTH | GLUT_DOUBLE);
+    glutInitWindowSize(SCREENWIDTH, SCREENHEIGHT);
+    window = glutCreateWindow("DSMViewer");
+
+    winInit();
+
+	int rval = EXIT_FAILURE;
+	size_t ext_pos = filename.find_last_of('.');
+	if (std::string::npos != ext_pos &&
+        "las" == filename.substr(ext_pos + 1))
+	{
+		rval = loadLAS(filename, band, pixel_step);
+	} else {
+		rval = loadGDAL(filename, band, pixel_step);
+	}
+	if (rval) {
+		fprintf(stderr, "Failed to load '%s'\n", filename.c_str());
+		return rval;
+	}
 	printKeys(argv);
 	
 	// Move the camera to the center of the point cloud

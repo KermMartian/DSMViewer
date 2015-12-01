@@ -18,6 +18,8 @@
 #include "camera.h"
 #include "gdal-helper.h"
 
+#include <laslib/lasreader.hpp>
+
 static GLint window;
 static unsigned int SCREENWIDTH = 1024;
 static unsigned int SCREENHEIGHT = 768;
@@ -50,6 +52,8 @@ void printUsage(char* argv[]);
 void printKeys(char* argv[]);
 
 void getHeatMapColor(float value, float *red, float *green, float *blue);
+int loadGDAL(std::string filename, int band, int pixel_step);
+int loadLAS(std::string filename, int band, int pixel_step);
 
 void winInit(void);
 void reshape(int w, int h);
