@@ -142,6 +142,11 @@ void keySpecial(int keyPressed, int x, int y) {
 
 /* Handle mouse buttons, used in motion() */
 void mouse(int button, int state, int x, int y) {
+    // Turn CTRL+right click into middle click
+    if ((button == GLUT_RIGHT_BUTTON) && (GLUT_ACTIVE_CTRL & glutGetModifiers())) {
+        button = GLUT_MIDDLE_BUTTON;
+    }
+
     if (state == GLUT_UP) {
         mouseMovePressed = false;
         mouseRotatePressed = false;
